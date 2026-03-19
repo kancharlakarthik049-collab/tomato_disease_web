@@ -77,21 +77,32 @@ def clahe_enhance(img):
     for channel in range(3):
         ch = img_array[:, :, channel]
 
-        hist, bins = np.histogram(ch.flatten(), 256, [0, 256])
+        # np.bincount always returns exactly 256 elements for uint8 values (0-255),
+        # avoiding the (256,)/(257,) shape mismatch from np.histogram bins array.
+        hist = np.bincount(ch.flatten(), minlength=256).astype(np.int64)[:256]
 
-        clip_limit = int(ch.size * 0.01)
-        excess = np.sum(np.maximum(hist - clip_limit, 0))
+        clip_limit = max(1, int(ch.size * 0.01))
+        excess = int(np.sum(np.maximum(hist - clip_limit, 0)))
         hist = np.minimum(hist, clip_limit)
-        hist += excess // 256
+        hist = hist + (excess // 256)  # avoid in-place to prevent dtype cast issues
 
-        cdf = hist.cumsum()
-        cdf_min = cdf[cdf > 0].min()
-        total_pixels = ch.size
+        cdf = np.cumsum(hist)
+        nonzero = cdf[cdf > 0]
+        if len(nonzero) == 0:
+            result[:, :, channel] = ch
+            continue
 
-        lut = np.round(
-            (cdf - cdf_min) / (total_pixels - cdf_min) * 255
-        ).astype(np.uint8)
-        lut = np.clip(lut, 0, 255)
+        cdf_min = int(nonzero[0])
+        denom = int(ch.size) - cdf_min
+        if denom <= 0:
+            result[:, :, channel] = ch
+            continue
+
+        # Build a 256-element LUT — one output value per possible input pixel value
+        lut = np.clip(
+            np.round((cdf - cdf_min) / denom * 255),
+            0, 255
+        ).astype(np.uint8)  # shape is always (256,)
 
         result[:, :, channel] = lut[ch]
 
