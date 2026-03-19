@@ -6,9 +6,9 @@ venv/
 .venv/
 env/
 *.h5
-*.onnx
+# *.onnx
 model/*.h5
-model/*.onnx
+# model/*.onnx
 uploads/*
 !uploads/.gitkeep
 .DS_Store
