@@ -1,0 +1,25 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<div class="about-card">
+    <h1>About CropGuard</h1>
+    <p>AI-powered tomato leaf disease identification system.
+    Upload a leaf photo and get an instant diagnosis with treatment tips.</p>
+    <ul class="spec-list">
+        <li><strong>Model</strong> InceptionV3 (ONNX)</li>
+        <li><strong>Dataset</strong> Plant Village — Kaggle</li>
+        <li><strong>Diseases</strong> 10 tomato disease classes</li>
+        <li><strong>Backend</strong> Flask (Python)</li>
+        <li><strong>Deployment</strong> Render.com</li>
+    </ul>
+    <p style="font-size:13px;color:#6b7280;">
+        For best results, use a clear close-up photo of a tomato leaf in good lighting.
+    </p>
+    <div class="mt-4">
+        <a href="/" style="display:inline-flex;align-items:center;gap:6px;
+        background:#2d6a4f;color:white;padding:11px 20px;border-radius:10px;
+        text-decoration:none;font-size:14px;font-weight:600;">
+            <i class="bi bi-arrow-left"></i> Go Back
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="result-section mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card result-card shadow-lg animate-fade-in">
+                <div class="row g-0">
+                    <div class="col-md-5 text-center p-4">
+                        <img src="{{ image_url }}" alt="Uploaded Leaf" class="img-fluid rounded shadow mb-3" style="max-height:320px;">
+                    </div>
+                    <div class="col-md-7 p-4">
+                        <h2 class="fw-bold mb-2" style="color:#2d6a4f; font-family:'Poppins',sans-serif;">{{ prediction.display_name }}</h2>
+                        <div class="mb-3">
+                            <span class="fw-bold">Confidence:</span>
+                            <div class="progress" style="height: 24px;">
+                                {% set conf = prediction.confidence %}
+                                {% if conf >= 80 %}
+                                    <div class="progress-bar bg-success progress-bar-animated" role="progressbar" style="width: {{ conf }}%">{{ conf }}%</div>
+                                {% elif conf >= 50 %}
+                                    <div class="progress-bar bg-warning progress-bar-animated" role="progressbar" style="width: {{ conf }}%">{{ conf }}%</div>
+                                {% else %}
+                                    <div class="progress-bar bg-danger progress-bar-animated" role="progressbar" style="width: {{ conf }}%">{{ conf }}%</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <span class="fw-bold">Description:</span>
+                            <p>{{ prediction.description }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <span class="fw-bold">Symptoms:</span>
+                            <ul>
+                                {% for s in prediction.symptoms %}
+                                <li>{{ s }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="mb-3">
+                            <span class="fw-bold">Treatment:</span>
+                            <ul>
+                                {% for t in prediction.treatment %}
+                                <li>{{ t }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="mb-3">
+                            <span class="fw-bold">Prevention:</span>
+                            <ul>
+                                {% for p in prediction.prevention %}
+                                <li>{{ p }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="d-flex gap-2 mt-4">
+                            <a href="/" class="btn btn-outline-success rounded-pill">Analyze Another Image</a>
+                            <button class="btn btn-accent rounded-pill" id="shareResultBtn">Share Result</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

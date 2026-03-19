@@ -1,0 +1,187 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<div class="main-wrapper">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header text-center">
+        <h1 class="page-title">Tomato Disease Identifier</h1>
+        <p class="page-sub">Upload a tomato leaf image to detect disease instantly</p>
+    </div>
+
+    <!-- UPLOAD CARD -->
+    <div class="upload-card" id="uploadCard">
+
+        <!-- DROP ZONE -->
+        <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" hidden>
+
+            <!-- DEFAULT STATE -->
+            <div class="dz-default" id="dzDefault">
+                <div class="dz-icon">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                </div>
+                <p class="dz-main-text">Drag &amp; drop a leaf image here</p>
+                <p class="dz-sub-text">
+                    or <button type="button" class="dz-browse-btn" id="browseBtn">
+                        browse files
+                    </button>
+                </p>
+                <div class="dz-formats">
+                    <span>JPG</span>
+                    <span>JPEG</span>
+                    <span>PNG</span>
+                    <span>Max 16MB</span>
+                </div>
+            </div>
+
+            <!-- PREVIEW STATE -->
+            <div class="dz-preview" id="dzPreview" style="display:none;">
+                <img id="preview" class="preview-img" src="" alt="Preview">
+                <div class="preview-overlay">
+                    <button type="button" class="preview-change-btn" id="changeBtn">
+                        <i class="bi bi-arrow-repeat me-1"></i>Change
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILE INFO BAR -->
+        <div class="file-info" id="fileInfo" style="display:none;">
+            <i class="bi bi-file-earmark-image-fill text-success"></i>
+            <span id="fileName" class="file-name"></span>
+            <span id="fileSize" class="file-size"></span>
+            <i class="bi bi-check-circle-fill text-success ms-auto"></i>
+        </div>
+
+        <!-- ERROR MESSAGE -->
+        <div id="errorMsg" class="error-msg" style="display:none;">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span id="errorText"></span>
+        </div>
+
+        <!-- ANALYZE BUTTON -->
+        <button type="button" class="analyze-btn" id="analyzeBtn">
+            <span id="analyzeBtnText">
+                <i class="bi bi-search-heart me-2"></i>Analyze Disease
+            </span>
+            <span id="analyzeBtnLoading" style="display:none;">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Analyzing...
+            </span>
+        </button>
+
+        <!-- SMALL NOTE -->
+        <p class="upload-note">
+            <i class="bi bi-shield-check me-1"></i>
+            Image is deleted after analysis
+        </p>
+
+    </div>
+
+    <!-- RESULT SECTION (hidden initially) -->
+    <div id="resultSection" style="display:none;" class="result-card">
+
+        <!-- RESULT HEADER -->
+        <div class="result-header">
+            <div class="result-header-left">
+                <div class="result-badge">
+                    <i class="bi bi-check-circle-fill me-1"></i>
+                    Analysis Complete
+                </div>
+                <h2 class="result-name" id="diseaseName"></h2>
+                <div class="result-meta">
+                    <span id="confidenceLabel" class="conf-badge"></span>
+                </div>
+            </div>
+            <div class="conf-ring">
+                <svg viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" class="conf-track"/>
+                    <circle cx="50" cy="50" r="42" class="conf-fill" id="confCircle"/>
+                </svg>
+                <div class="conf-ring-inner">
+                    <div class="conf-ring-num" id="confidence">0%</div>
+                    <div class="conf-ring-label">Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONFIDENCE BAR -->
+        <div class="conf-bar-wrap">
+            <div class="conf-bar-fill" id="confidenceBar"></div>
+        </div>
+
+        <!-- WARNING (medium confidence) -->
+        <div id="warningMsg" class="warning-msg" style="display:none;">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span id="warningText"></span>
+        </div>
+
+        <!-- TIPS BOX -->
+        <div id="tipsBox" class="tips-box" style="display:none;"></div>
+
+        <!-- RESULT BODY -->
+        <div class="result-body">
+
+            <!-- DESCRIPTION -->
+            <div class="result-desc-block">
+                <span class="result-label">Description</span>
+                <p id="description" class="result-desc-text"></p>
+            </div>
+
+            <!-- 3 COLUMN GRID -->
+            <div class="result-grid">
+                <div class="result-col col-symptoms">
+                    <div class="result-col-header">
+                        <i class="bi bi-eye-fill me-1"></i>Symptoms
+                    </div>
+                    <ul id="symptomsList"></ul>
+                </div>
+                <div class="result-col col-treatment">
+                    <div class="result-col-header">
+                        <i class="bi bi-capsule-pill me-1"></i>Treatment
+                    </div>
+                    <ul id="treatmentList"></ul>
+                </div>
+                <div class="result-col col-prevention">
+                    <div class="result-col-header">
+                        <i class="bi bi-shield-check me-1"></i>Prevention
+                    </div>
+                    <ul id="preventionList"></ul>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RESULT FOOTER -->
+        <div class="result-footer">
+            <button class="btn-again" onclick="resetToUpload()">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>
+                Analyze Another
+            </button>
+            <button class="btn-share" id="shareBtn">
+                <i class="bi bi-share me-1"></i>Share
+            </button>
+        </div>
+
+    </div>
+
+    <!-- REJECTED SECTION (hidden initially) -->
+    <div id="rejectedSection" style="display:none;" class="rejected-card">
+        <div class="rejected-icon">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <h4 id="rejectedMsg" class="rejected-title"></h4>
+        <p id="rejectedConf" class="rejected-conf" style="display:none;"></p>
+        <div class="rejected-tips">
+            <p class="tips-heading">
+                <i class="bi bi-camera me-1"></i>Tips for better results
+            </p>
+            <ul id="rejectedTips"></ul>
+        </div>
+        <button class="analyze-btn mt-2" onclick="resetToUpload()">
+            <i class="bi bi-arrow-counterclockwise me-2"></i>Try Again
+        </button>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: crop-disease-identification
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --timeout 120
