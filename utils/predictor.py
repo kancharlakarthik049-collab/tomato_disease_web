@@ -2,7 +2,7 @@
 import numpy as np
 from PIL import Image as PILImage
 from utils.model_loader import get_session
-from utils.preprocessor import preprocess_image
+from utils.preprocessor import preprocess_image, normalize_colors
 
 # Confidence thresholds
 HIGH_CONFIDENCE = 70.0    # Reliable prediction
@@ -95,8 +95,6 @@ DISEASE_INFO = {
 }
 
 def is_green_leaf(image_path):
-    from utils.preprocessor import normalize_colors
-
     img = PILImage.open(image_path).convert("RGB")
     img = normalize_colors(img)
     img = img.resize((64, 64))
@@ -161,7 +159,7 @@ def predict_disease(image_path):
         return {
             "status": "success",
             "confidence_level": "high",
-            "confidence_label": "\ud83d\udfe2 High Confidence",
+            "confidence_label": "\U0001F7E2 High Confidence",
             "confidence_badge": "success",
             "message": None,
             "disease_name": disease_name,
@@ -179,7 +177,7 @@ def predict_disease(image_path):
         return {
             "status": "success",
             "confidence_level": "medium",
-            "confidence_label": "\ud83d\udfe1 Medium Confidence",
+            "confidence_label": "\U0001F7E1 Medium Confidence",
             "confidence_badge": "warning",
             "message": "\u26a0\ufe0f Medium confidence result. Please verify with an agricultural expert.",
             "disease_name": disease_name,
@@ -202,7 +200,7 @@ def predict_disease(image_path):
         return {
             "status": "rejected",
             "confidence_level": "low",
-            "confidence_label": "\ud83d\udd34 Low Confidence",
+            "confidence_label": "\U0001F534 Low Confidence",
             "confidence_badge": "danger",
             "message": f"\u274c Image not recognized as tomato leaf. (Confidence: {confidence:.1f}%)",
             "disease_name": None,
