@@ -104,16 +104,18 @@ def is_green_leaf(image_path):
     g = img_array[:, :, 1]
     b = img_array[:, :, 2]
 
-    green1 = (g > r * 1.05) & (g > b * 1.05) & (g > 30)
-    green2 = (g > 100) & (r > 80) & (b < 100)
-    green3 = (g > 40) & (g > r * 0.9) & (b < 120)
-    green4 = (g > 50) & (r > 50) & (r < 180) & (b < 100)
+    # Healthy green
+    green = (g > r * 1.05) & (g > b * 1.05) & (g > 40)
+    # Yellowing / diseased leaves (Yellow Leaf Curl Virus, Early Blight)
+    yellow_green = (g > 70) & (r > 60) & (b < 130) & (g > b * 1.15)
+    # Olive / shadowed mature leaf areas
+    olive = (g > 35) & (g > b) & (r < 180) & (b < 110)
 
-    leaf_mask = green1 | green2 | green3 | green4
-    leaf_ratio = np.sum(leaf_mask) / (64 * 64)
+    leaf_mask = green | yellow_green | olive
+    leaf_ratio = float(np.sum(leaf_mask)) / (64 * 64)
 
     print(f"Leaf ratio: {leaf_ratio:.2f}")
-    return leaf_ratio > 0.08
+    return leaf_ratio > 0.12
 
 
 def predict_disease(image_path):

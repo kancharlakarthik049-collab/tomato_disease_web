@@ -5,6 +5,7 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from utils.model_loader import load_model
 from utils.predictor import predict_disease
+from utils.image_validator import validate_image
 
 app = Flask(__name__)
 CORS(app)
@@ -48,6 +49,31 @@ def predict():
         filename = str(uuid.uuid4()) + "_" + secure_filename(file.filename)
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
+
+        # Reject suspiciously tiny files (< 5 KB)
+        if os.path.getsize(filepath) < 5 * 1024:
+            os.remove(filepath)
+            return jsonify({
+                "status": "rejected",
+                "confidence_level": "none",
+                "message": "File is too small to be a valid image (< 5 KB).",
+                "tips": ["Upload a real photo of a tomato leaf, not a thumbnail"],
+                "disease_name": None,
+                "confidence": 0
+            }), 422
+
+        # Validate image content before running the model
+        is_valid, error_msg, tips = validate_image(filepath)
+        if not is_valid:
+            os.remove(filepath)
+            return jsonify({
+                "status": "rejected",
+                "confidence_level": "none",
+                "message": error_msg,
+                "tips": tips,
+                "disease_name": None,
+                "confidence": 0
+            }), 422
 
         result = predict_disease(filepath)
 
