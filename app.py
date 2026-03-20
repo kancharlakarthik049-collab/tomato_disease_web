@@ -8,7 +8,21 @@ from utils.predictor import predict_disease
 from utils.image_validator import validate_image
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            # Vercel production domains
+            "https://tomato-disease-q3ptkoix6-kancharlakarthik049-collabs-projects.vercel.app",
+            "https://tomato-disease-git-12b1a3-kancharlakarthik049-collabs-projects.vercel.app",
+            # Local development
+            "http://localhost:5000",
+            "http://127.0.0.1:5000",
+            "http://localhost:3000",
+            # Wildcard: allows any origin, covers all Vercel preview URLs
+            "*",
+        ]
+    }
+})
 
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 UPLOAD_FOLDER = "uploads"

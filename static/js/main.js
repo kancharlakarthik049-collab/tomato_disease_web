@@ -1,4 +1,12 @@
-﻿document.addEventListener('DOMContentLoaded', function () {
+﻿// Auto-detect which backend to use:
+//   • localhost / 127.0.0.1  → relative URL (Flask dev server handles it)
+//   • any other host (Vercel) → absolute Render.com URL
+const API_BASE = (window.location.hostname === 'localhost' ||
+                  window.location.hostname === '127.0.0.1')
+    ? ''
+    : 'https://tomato-disease-web-2hwc.onrender.com';
+
+document.addEventListener('DOMContentLoaded', function () {
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -95,15 +103,28 @@
 
             setLoading(true);
             hideError();
+            hideSleepWarning();
 
             const formData = new FormData();
             formData.append('file', file);
 
+            // Show "server waking up" notice if Render takes > 8 seconds
+            const sleepTimer = setTimeout(showSleepWarning, 8000);
+
+            // Hard-abort after 60 seconds (Render cold-start can take ~30s)
+            const controller = new AbortController();
+            const abortTimer = setTimeout(() => controller.abort(), 60000);
+
             try {
-                const response = await fetch('/predict', {
+                const response = await fetch(API_BASE + '/predict', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    signal: controller.signal
                 });
+                clearTimeout(sleepTimer);
+                clearTimeout(abortTimer);
+                hideSleepWarning();
+
                 const result = await response.json();
                 console.log('Result:', result);
 
@@ -115,8 +136,15 @@
                     showError(result.message || 'Something went wrong.');
                 }
             } catch (err) {
+                clearTimeout(sleepTimer);
+                clearTimeout(abortTimer);
+                hideSleepWarning();
                 console.error(err);
-                showError('Server error! Please try again.');
+                if (err.name === 'AbortError') {
+                    showError('Request timed out (60s). The server may be starting up — please try again in a moment.');
+                } else {
+                    showError('Cannot reach server. Check your connection or try again later.');
+                }
             } finally {
                 setLoading(false);
             }
@@ -285,6 +313,16 @@
 
     function hideError() {
         if (errorMsg) errorMsg.style.display = 'none';
+    }
+
+    function showSleepWarning() {
+        const el = document.getElementById('sleepWarning');
+        if (el) el.style.display = 'flex';
+    }
+
+    function hideSleepWarning() {
+        const el = document.getElementById('sleepWarning');
+        if (el) el.style.display = 'none';
     }
 
     // Share button

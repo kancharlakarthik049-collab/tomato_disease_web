@@ -1,0 +1,30 @@
+# Exclude backend/Python files — Vercel serves only the static frontend.
+# Flask runs on Render; these files must NOT be deployed to Vercel.
+
+# Python backend
+app.py
+utils/
+requirements.txt
+runtime.txt
+Procfile
+render.yaml
+
+# ML model (too large for Vercel; runs on Render only)
+model/
+
+# Upload scratch directory
+uploads/
+
+# Python runtime artifacts
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.h5
+*.onnx
+
+# Test / dev scripts
+test_validator.py
+tune_threshold.py
+_*.py
