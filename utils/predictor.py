@@ -2,7 +2,7 @@
 import numpy as np
 from PIL import Image as PILImage
 from utils.model_loader import get_session
-from utils.preprocessor import preprocess_image, normalize_colors
+from utils.preprocessor import preprocess_image
 
 # Confidence thresholds
 HIGH_CONFIDENCE = 70.0    # Reliable prediction
@@ -96,7 +96,6 @@ DISEASE_INFO = {
 
 def is_green_leaf(image_path):
     img = PILImage.open(image_path).convert("RGB")
-    img = normalize_colors(img)
     img = img.resize((64, 64))
     img_array = np.array(img, dtype=np.float32)
 
@@ -141,20 +140,45 @@ def predict_disease(image_path):
     print(f"Running prediction on preprocessed image...")
     print(f"Input shape: {img_array.shape}")
     outputs = session.run(None, {input_name: img_array})
-    predictions = outputs[0][0]
+    raw_output = outputs[0][0]
 
-    # Show top 3 predictions for debugging
-    top3_idx = np.argsort(predictions)[-3:][::-1]
-    print("Top 3 predictions:")
-    for idx in top3_idx:
-        print(f"  {CLASS_NAMES[idx]}: {predictions[idx]*100:.2f}%")
+    print(f"[PREDICTOR] Raw output sum: {np.sum(raw_output):.4f}")
+    print(f"[PREDICTOR] Raw output: {raw_output}")
+
+    # This ONNX model has a Softmax node baked in as its final layer.
+    # outputs[0] values are already probabilities: all in [0,1], sum == 1.0.
+    # Applying softmax a second time would squash the distribution toward
+    # uniform and degrade accuracy — do NOT apply it.
+    # The guard below is kept only as a safety net for model hot-swaps.
+    if abs(float(np.sum(raw_output)) - 1.0) > 0.01:
+        e_x = np.exp(raw_output - np.max(raw_output))
+        predictions = e_x / e_x.sum()
+        print("[PREDICTOR] Applied softmax (model was outputting logits)")
+    else:
+        predictions = raw_output
+        print("[PREDICTOR] Using raw output directly (model outputs probabilities)")
+
+    # Full class scores for debugging — watch for variety across different uploads
+    print("[PREDICTOR] All class scores:")
+    for i, (name, prob) in enumerate(zip(CLASS_NAMES, predictions)):
+        print(f"  {i}: {name}: {prob * 100:.2f}%")
 
     class_idx = int(np.argmax(predictions))
     confidence = float(np.max(predictions)) * 100
     disease_name = CLASS_NAMES[class_idx]
     disease_data = DISEASE_INFO.get(disease_name, {})
 
-    print(f"Predicted: {disease_name} ({confidence:.2f}%)")
+    print(f"[PREDICTOR] Predicted: {disease_name} ({confidence:.2f}%)")
+
+    # Build top-3 for UI display
+    top3_indices = np.argsort(predictions)[::-1][:3]
+    top3 = [
+        {
+            "disease": DISEASE_INFO.get(CLASS_NAMES[i], {}).get("display_name", CLASS_NAMES[i]),
+            "confidence": round(float(predictions[i]) * 100, 2)
+        }
+        for i in top3_indices
+    ]
 
     # Step 3: High confidence - reliable result
     if confidence >= HIGH_CONFIDENCE:
@@ -171,7 +195,8 @@ def predict_disease(image_path):
             "symptoms": disease_data.get("symptoms", []),
             "treatment": disease_data.get("treatment", []),
             "prevention": disease_data.get("prevention", []),
-            "tips": None
+            "tips": None,
+            "top3": top3
         }
 
     # Step 4: Medium confidence - show with warning
@@ -194,7 +219,8 @@ def predict_disease(image_path):
                 "Ensure good lighting conditions",
                 "Focus on the most affected area",
                 "Avoid shadows on the leaf"
-            ]
+            ],
+            "top3": top3
         }
 
     # Step 5: Low confidence - reject

@@ -12,7 +12,7 @@ CORS(app)
 
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 UPLOAD_FOLDER = "uploads"
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):

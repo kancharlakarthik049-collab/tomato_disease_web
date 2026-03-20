@@ -60,7 +60,7 @@
 
     // Show preview
     function showPreview(file) {
-        const allowed = ['image/jpeg', 'image/jpg', 'image/png'];
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!allowed.includes(file.type)) {
             showError('Invalid file type! Use JPG, JPEG, or PNG.');
             return;
@@ -213,6 +213,21 @@
         setList('symptomsList', result.symptoms);
         setList('treatmentList', result.treatment);
         setList('preventionList', result.prevention);
+
+        // Top 3 predictions
+        const top3Box = document.getElementById('top3Box');
+        if (top3Box && result.top3 && result.top3.length > 0) {
+            top3Box.innerHTML = '<strong style="font-size:13px;">Top predictions:</strong>'
+                + result.top3.map((p, i) =>
+                    `<div class="d-flex justify-content-between align-items-center mt-1" style="font-size:12px;">`
+                    + `<span>${i + 1}. ${p.disease}</span>`
+                    + `<span class="badge bg-secondary">${p.confidence}%</span>`
+                    + `</div>`
+                ).join('');
+            top3Box.style.display = 'block';
+        } else if (top3Box) {
+            top3Box.style.display = 'none';
+        }
     }
 
     function setList(id, items) {

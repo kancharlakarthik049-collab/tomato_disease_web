@@ -1,152 +1,47 @@
 import numpy as np
-from PIL import Image, ImageEnhance, ImageFilter
-
-
-def enhance_image(img):
-    img_array = np.array(img, dtype=np.float32)
-    mean_brightness = np.mean(img_array)
-
-    if mean_brightness < 80:
-        brightness_factor = 1.5
-    elif mean_brightness > 180:
-        brightness_factor = 0.8
-    else:
-        brightness_factor = 1.1
-
-    enhancer = ImageEnhance.Brightness(img)
-    img = enhancer.enhance(brightness_factor)
-
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.3)
-
-    enhancer = ImageEnhance.Color(img)
-    img = enhancer.enhance(1.2)
-
-    enhancer = ImageEnhance.Sharpness(img)
-    img = enhancer.enhance(2.0)
-
-    img = img.filter(ImageFilter.UnsharpMask(
-        radius=2,
-        percent=150,
-        threshold=3
-    ))
-
-    return img
-
-
-def smart_crop(img):
-    img_array = np.array(img)
-    height, width = img_array.shape[:2]
-
-    r = img_array[:, :, 0].astype(float)
-    g = img_array[:, :, 1].astype(float)
-    b = img_array[:, :, 2].astype(float)
-
-    plant_mask = (
-        (g > r * 0.9) |
-        (g > b * 0.9) |
-        ((g > 40) & (g > r * 0.8))
-    )
-
-    row_has_plant = np.any(plant_mask, axis=1)
-    col_has_plant = np.any(plant_mask, axis=0)
-
-    if np.any(row_has_plant) and np.any(col_has_plant):
-        rows = np.where(row_has_plant)[0]
-        cols = np.where(col_has_plant)[0]
-
-        top = max(0, rows[0] - 10)
-        bottom = min(height, rows[-1] + 10)
-        left = max(0, cols[0] - 10)
-        right = min(width, cols[-1] + 10)
-
-        crop_height = bottom - top
-        crop_width = right - left
-
-        if (crop_height > height * 0.3 and
-                crop_width > width * 0.3):
-            img = img.crop((left, top, right, bottom))
-
-    return img
-
-
-def clahe_enhance(img):
-    img_array = np.array(img, dtype=np.uint8)
-    result = np.zeros_like(img_array)
-
-    for channel in range(3):
-        ch = img_array[:, :, channel]
-
-        # np.bincount always returns exactly 256 elements for uint8 values (0-255),
-        # avoiding the (256,)/(257,) shape mismatch from np.histogram bins array.
-        hist = np.bincount(ch.flatten(), minlength=256).astype(np.int64)[:256]
-
-        clip_limit = max(1, int(ch.size * 0.01))
-        excess = int(np.sum(np.maximum(hist - clip_limit, 0)))
-        hist = np.minimum(hist, clip_limit)
-        hist = hist + (excess // 256)  # avoid in-place to prevent dtype cast issues
-
-        cdf = np.cumsum(hist)
-        nonzero = cdf[cdf > 0]
-        if len(nonzero) == 0:
-            result[:, :, channel] = ch
-            continue
-
-        cdf_min = int(nonzero[0])
-        denom = int(ch.size) - cdf_min
-        if denom <= 0:
-            result[:, :, channel] = ch
-            continue
-
-        # Build a 256-element LUT — one output value per possible input pixel value
-        lut = np.clip(
-            np.round((cdf - cdf_min) / denom * 255),
-            0, 255
-        ).astype(np.uint8)  # shape is always (256,)
-
-        result[:, :, channel] = lut[ch]
-
-    return Image.fromarray(result)
-
-
-def normalize_colors(img):
-    img_array = np.array(img, dtype=np.float32)
-
-    for channel in range(3):
-        ch = img_array[:, :, channel]
-        ch_min = np.percentile(ch, 2)
-        ch_max = np.percentile(ch, 98)
-
-        if ch_max > ch_min:
-            img_array[:, :, channel] = np.clip(
-                (ch - ch_min) / (ch_max - ch_min) * 255,
-                0, 255
-            )
-
-    return Image.fromarray(img_array.astype(np.uint8))
+from PIL import Image, ImageOps
 
 
 def preprocess_image(image_path):
-    print(f"Preprocessing: {image_path}")
+    """
+    Preprocessing pipeline for InceptionV3 ONNX model.
 
-    img = Image.open(image_path).convert("RGB")
-    original_size = img.size
-    print(f"Original size: {original_size}")
+    Matches EXACTLY the Keras tf.keras.applications.inception_v3.preprocess_input
+    pipeline used during training:
+      1. Open raw image (no custom enhancements — they corrupt model predictions)
+      2. Fix EXIF orientation so phone photos are correctly oriented
+      3. Convert to RGB (removes alpha channel, handles grayscale)
+      4. Resize to 224×224 with BILINEAR (Keras ImageDataGenerator default)
+      5. Normalize: (pixel / 127.5) - 1.0  →  range [-1, 1]
+      6. Add batch dimension → shape (1, 224, 224, 3)
 
-    img = normalize_colors(img)
-    img = smart_crop(img)
-    print(f"After crop: {img.size}")
+    WARNING: Do NOT add brightness/contrast/CLAHE/sharpness enhancements here.
+    The model was never trained on enhanced images, so any enhancement causes
+    distribution shift and biases predictions toward a single class (Early Blight).
+    """
+    # Step 1: Open image
+    image = Image.open(image_path)
 
-    img = clahe_enhance(img)
-    img = enhance_image(img)
+    # Step 2: Fix EXIF orientation — critical for phone camera photos
+    # (ImageOps.exif_transpose is the clean Pillow way; handles all 8 orientations)
+    image = ImageOps.exif_transpose(image)
 
-    img = img.resize((224, 224), Image.LANCZOS)
+    # Step 3: Convert to RGB — removes alpha (RGBA PNG), handles grayscale/CMYK
+    image = image.convert("RGB")
 
-    img_array = np.array(img, dtype=np.float32)
-    img_array = (img_array / 127.5) - 1.0
-    img_array = np.expand_dims(img_array, axis=0)
+    # Step 4: Resize to 224×224 with BILINEAR interpolation
+    # (Keras ImageDataGenerator uses BILINEAR by default during training)
+    image = image.resize((224, 224), Image.Resampling.BILINEAR)
 
-    print(f"Final shape: {img_array.shape}")
-    print(f"Value range: [{img_array.min():.2f}, {img_array.max():.2f}]")
+    # Step 5: Float32 array, then apply InceptionV3 normalization
+    # Keras formula: (x / 127.5) - 1.0  →  values in [-1, 1]
+    arr = np.array(image, dtype=np.float32)
+    arr = (arr / 127.5) - 1.0
 
-    return img_array
+    # Step 6: Add batch dimension → (1, 224, 224, 3)  [NHWC format]
+    arr = np.expand_dims(arr, axis=0)
+
+    print(f"[DEBUG] Preprocessed shape: {arr.shape}")
+    print(f"[DEBUG] Value range: [{arr.min():.3f}, {arr.max():.3f}]")
+
+    return arr
