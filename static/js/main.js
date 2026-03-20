@@ -6,6 +6,44 @@ const API_BASE = (window.location.hostname === 'localhost' ||
     ? ''
     : 'https://tomato-disease-web-2hwc.onrender.com';
 
+// ── Server health ping ────────────────────────────────────────────────────────
+// Fires immediately on script load (before DOMContentLoaded so the request
+// is in-flight as early as possible). Also warms up Render's free-tier dyno.
+function showStatus(msg, ok) {
+    const el = document.getElementById('serverStatus');
+    if (!el) return;
+    if (ok) {
+        el.style.background = '#dcfce7';
+        el.style.color      = '#166534';
+    } else {
+        el.style.background = '#fff7ed';
+        el.style.color      = '#9a3412';
+    }
+    el.innerHTML = msg;
+}
+
+// Use a 10s timeout for the health probe so it doesn't hang forever
+const _hc = new AbortController();
+const _hcTimer = setTimeout(() => _hc.abort(), 10000);
+fetch(API_BASE + '/health', { signal: _hc.signal })
+    .then(r => r.json())
+    .then(data => {
+        clearTimeout(_hcTimer);
+        if (data.status === 'ok') {
+            showStatus('Server ready &#x2705;', true);
+        } else {
+            showStatus('Server responded but may be busy &#x26A0;&#xFE0F;', false);
+        }
+    })
+    .catch(err => {
+        clearTimeout(_hcTimer);
+        if (err.name === 'AbortError') {
+            showStatus('Server warming up&hellip; first request may take 30&ndash;60 s &#x23F3;', false);
+        } else {
+            showStatus('Server warming up&hellip; first request may take 30&ndash;60 s &#x23F3;', false);
+        }
+    });
+
 document.addEventListener('DOMContentLoaded', function () {
 
     const dropZone = document.getElementById('dropZone');
