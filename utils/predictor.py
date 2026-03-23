@@ -1,12 +1,10 @@
-
-import numpy as np
+﻿import numpy as np
 from PIL import Image as PILImage
 from utils.model_loader import get_session
 from utils.preprocessor import preprocess_image
 
-# Confidence thresholds
-HIGH_CONFIDENCE = 70.0    # Reliable prediction
-LOW_CONFIDENCE = 45.0     # Minimum to show result
+HIGH_CONFIDENCE = 70.0
+LOW_CONFIDENCE = 45.0
 
 CLASS_NAMES = [
     "Tomato_Bacterial_Spot",
@@ -94,46 +92,8 @@ DISEASE_INFO = {
     }
 }
 
-def is_green_leaf(image_path):
-    img = PILImage.open(image_path).convert("RGB")
-    img = img.resize((64, 64))
-    img_array = np.array(img, dtype=np.float32)
-
-    r = img_array[:, :, 0]
-    g = img_array[:, :, 1]
-    b = img_array[:, :, 2]
-
-    # Healthy green
-    green = (g > r * 1.05) & (g > b * 1.05) & (g > 40)
-    # Yellowing / diseased leaves (Yellow Leaf Curl Virus, Early Blight)
-    yellow_green = (g > 70) & (r > 60) & (b < 130) & (g > b * 1.15)
-    # Olive / shadowed mature leaf areas
-    olive = (g > 35) & (g > b) & (r < 180) & (b < 110)
-
-    leaf_mask = green | yellow_green | olive
-    leaf_ratio = float(np.sum(leaf_mask)) / (64 * 64)
-
-    print(f"Leaf ratio: {leaf_ratio:.2f}")
-    return leaf_ratio > 0.12
-
 
 def predict_disease(image_path):
-    # Step 1: Green leaf check
-    if not is_green_leaf(image_path):
-        return {
-            "status": "rejected",
-            "confidence_level": "none",
-            "message": "\u274c No leaf detected! Please upload a tomato leaf image.",
-            "tips": [
-                "Make sure the leaf fills most of the image",
-                "Take photo in natural daylight",
-                "Avoid dark or blurry images"
-            ],
-            "disease_name": None,
-            "confidence": 0
-        }
-
-    # Step 2: Run model prediction
     session = get_session()
     img_array = preprocess_image(image_path)
     input_name = session.get_inputs()[0].name
@@ -145,11 +105,6 @@ def predict_disease(image_path):
     print(f"[PREDICTOR] Raw output sum: {np.sum(raw_output):.4f}")
     print(f"[PREDICTOR] Raw output: {raw_output}")
 
-    # This ONNX model has a Softmax node baked in as its final layer.
-    # outputs[0] values are already probabilities: all in [0,1], sum == 1.0.
-    # Applying softmax a second time would squash the distribution toward
-    # uniform and degrade accuracy — do NOT apply it.
-    # The guard below is kept only as a safety net for model hot-swaps.
     if abs(float(np.sum(raw_output)) - 1.0) > 0.01:
         e_x = np.exp(raw_output - np.max(raw_output))
         predictions = e_x / e_x.sum()
@@ -158,7 +113,6 @@ def predict_disease(image_path):
         predictions = raw_output
         print("[PREDICTOR] Using raw output directly (model outputs probabilities)")
 
-    # Full class scores for debugging — watch for variety across different uploads
     print("[PREDICTOR] All class scores:")
     for i, (name, prob) in enumerate(zip(CLASS_NAMES, predictions)):
         print(f"  {i}: {name}: {prob * 100:.2f}%")
@@ -170,7 +124,6 @@ def predict_disease(image_path):
 
     print(f"[PREDICTOR] Predicted: {disease_name} ({confidence:.2f}%)")
 
-    # Build top-3 for UI display
     top3_indices = np.argsort(predictions)[::-1][:3]
     top3 = [
         {
@@ -180,7 +133,6 @@ def predict_disease(image_path):
         for i in top3_indices
     ]
 
-    # Step 3: High confidence - reliable result
     if confidence >= HIGH_CONFIDENCE:
         return {
             "status": "success",
@@ -199,7 +151,6 @@ def predict_disease(image_path):
             "top3": top3
         }
 
-    # Step 4: Medium confidence - show with warning
     elif confidence >= LOW_CONFIDENCE:
         return {
             "status": "success",
@@ -223,7 +174,6 @@ def predict_disease(image_path):
             "top3": top3
         }
 
-    # Step 5: Low confidence - reject
     else:
         return {
             "status": "rejected",
